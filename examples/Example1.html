@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>glixl - Example 1</title>
+	
+	<style type="text/css">
+		body {background: black; color:white;}
+		
+		canvas
+		{
+			background: white;
+			margin: 0px auto;
+			display:block;
+		}
+	</style>
+</head>
+<body>
+	<canvas width="416" height="416" id="canvas"></canvas>
+	<p>Controls: A/D to walk left/right, W to jump. | <span id="fps"></span> fps. </p>
+	
+	
+	<script type="text/javascript" src="../glixl.js"></script>
+	
+	<script type="text/javascript">
+		function Example()
+		{
+			var sprite;
+			
+			var sprite_sheet, tile_sheet;
+			
+			var tile_map;
+			
+			this.init = function()
+			{
+				sprite_sheet = new glixl.SpriteSheet({src:'sprite.png', frame_size:[16, 16]})
+				tile_sheet = new glixl.SpriteSheet({src:'tiles.png', frame_size:[16, 16]})
+				
+				tile_map = new glixl.TileMap({sprite_sheet: tile_sheet, dimensions: [26, 13], scale:2});
+				for (var i=0 ; i<26 ; i++)
+				{
+					for (var j=0 ; j<13 ; j++)
+					{
+						if (i == 0 || i == 25 || j==0 || j==12)
+							tile_map.set_tile(i, j, new glixl.Tile({frame:1, collidable: true}));
+						else
+							tile_map.set_tile(i, j, new glixl.Tile({frame:2}));
+					}
+				}
+				
+				tile_map.set_tile(5, 9, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(6, 9, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(7, 9, new glixl.Tile({frame:1, collidable: true}));
+				
+				tile_map.set_tile(12, 9, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(13, 9, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(14, 9, new glixl.Tile({frame:1, collidable: true}));
+				
+				tile_map.set_tile(17, 7, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(18, 7, new glixl.Tile({frame:1, collidable: true}));
+				tile_map.set_tile(19, 7, new glixl.Tile({frame:1, collidable: true}));
+				
+				glixl.scene.set_active_tilemap(tile_map);
+				
+				sprite = new glixl.Sprite( {sprite_sheet: sprite_sheet, x: 64-16, y: 96-16, size:[16, 16], scale: 2} );
+				
+				sprite.anims = {}
+				sprite.anims.walk_right = new glixl.Animation({frames:[12, 13, 14, 15, 16, 17], frame_duration:60});
+				sprite.anims.walk_left = new glixl.Animation({frames:[18, 19, 20, 21, 22, 23], frame_duration:60});
+				sprite.set_animation(sprite.anims.walk_right);
+				
+				glixl.scene.add_sprite(sprite);
+				
+				sprite.can_jump = true;
+				sprite.vx = 0;
+				sprite.vy = 0;
+				
+				sprite.move = function()
+				{
+					this.x += this.vx;
+					if (tile_map.collide(this.x, this.y))
+					{
+						this.x -= this.vx;
+					}
+					else
+						this.redraw = true;
+					this.vx = 0;
+
+					this.y -= this.vy;
+					if (tile_map.collide(this.x, this.y+this.height))
+					{
+						this.can_jump = true;
+						this.y += this.vy;
+						this.vy = 0;
+					}
+					else
+						this.redraw = true;
+					
+					this.vy -= 1; //Gravity
+					if (this.vy < -10)
+						this.vy = -10;
+				}
+			}
+			
+			this.update = function()
+			{
+				if (glixl.key_pressed("d"))
+				{
+					sprite.vx = 4;
+					sprite.set_animation(sprite.anims.walk_right);
+					
+				}
+				
+				if (glixl.key_pressed("a"))
+				{
+					sprite.vx = -4;
+					sprite.set_animation(sprite.anims.walk_left);
+				}
+				if (glixl.key_pressed("w") && sprite.can_jump)
+				{
+					sprite.can_jump = false;
+					sprite.vy = 15;
+				}
+				
+				sprite.move();
+				
+				glixl.scene.center_on(sprite);				
+					
+				document.getElementById('fps').innerHTML = glixl.fps;
+			}
+		}
+		
+		glixl.start(Example);
+    	
+    </script>
+</body>
+</html>
