@@ -151,7 +151,12 @@ var glixl = (function(glixl)
 	
 	glixl.Scene.prototype.add_sprite = function(sprite)
 	{
-		this.sprites.push(sprite);
+		sprite.scene_index = this.sprites.push(sprite) - 1;
+	}
+	
+	glixl.Scene.prototype.remove_sprite = function(sprite)
+	{
+		delete this.sprites[sprite.scene_index];
 	}
 	
 	glixl.Scene.prototype.set_active_tilemap = function(tilemap)
@@ -208,7 +213,7 @@ var glixl = (function(glixl)
 	
 		for(var i=0 ; i<this.sprites.length ; i++)
 		{
-			if (this.is_visible(this.sprites[i]))
+			if (this.sprites[i] && this.is_visible(this.sprites[i]))
 				this.sprites[i].render();
 		}
 		this.redraw = false;
