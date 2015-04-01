@@ -661,7 +661,7 @@ var glixl = (function(glixl)
 														*/
 	glixl.Tile = function Tile(parameters)
 	{
-		if (!parameters.frame)
+		if (!parameters.hasOwnProperty('frame'))
 			throw new Error("*** Error: No frame index specified for tile.");
 			
 		this.frame = parameters.frame;
