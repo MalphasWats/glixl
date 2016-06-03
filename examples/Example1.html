@@ -35,7 +35,7 @@
 				sprite_sheet = new glixl.SpriteSheet({src:'sprite.png', frame_size:[16, 16]})
 				tile_sheet = new glixl.SpriteSheet({src:'tiles.png', frame_size:[16, 16]})
 				
-				tile_map = new glixl.TileMap({sprite_sheet: tile_sheet, dimensions: [26, 13], scale:2});
+				tile_map = new glixl.TileMap({sprite_sheet: tile_sheet, dimensions: [26, 13, 2], scale:2});
 				for (var i=0 ; i<26 ; i++)
 				{
 					for (var j=0 ; j<13 ; j++)
@@ -61,7 +61,7 @@
 				
 				glixl.scene.set_active_tilemap(tile_map);
 				
-				sprite = new glixl.Sprite( {sprite_sheet: sprite_sheet, x: 64-16, y: 96-16, size:[16, 16], scale: 2} );
+				sprite = new glixl.Sprite( {sprite_sheet: sprite_sheet, x: 64-16, y: 96-16, z: 1, size:[16, 16], scale: 2} );
 				
 				sprite.anims = {}
 				sprite.anims.walk_right = new glixl.Animation({frames:[12, 13, 14, 15, 16, 17], frame_duration:60});
@@ -77,7 +77,7 @@
 				sprite.move = function()
 				{
 					this.x += this.vx;
-					if (tile_map.collide(this.x, this.y))
+					if (tile_map.collide(this.x, this.y, 0))
 					{
 						this.x -= this.vx;
 					}
@@ -86,7 +86,7 @@
 					this.vx = 0;
 
 					this.y -= this.vy;
-					if (tile_map.collide(this.x, this.y+this.height))
+					if (tile_map.collide(this.x, this.y+this.height, 0))
 					{
 						this.can_jump = true;
 						this.y += this.vy;
@@ -123,7 +123,7 @@
 				
 				sprite.move();
 				
-				glixl.scene.center_on(sprite);				
+				glixl.scene.center_on(sprite);
 					
 				document.getElementById('fps').innerHTML = glixl.fps;
 			}

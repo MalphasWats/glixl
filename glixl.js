@@ -132,7 +132,6 @@ var glixl = (function(glixl)
     glixl.Scene = function Scene(parameters)
     {
         this.sprites = [];
-        
         this.tilemap = {};
         
         this.viewport = {
@@ -209,14 +208,36 @@ var glixl = (function(glixl)
     
     glixl.Scene.prototype.render = function()
     {
-        this.tilemap.render();
-    
-        for(var i=0 ; i<this.sprites.length ; i++)
+        this.sprites.sort(function(a, b) { return a.y - b.y });
+        
+        for (var depth=0 ; depth < this.tilemap.depth ; depth++)
         {
-            if (this.sprites[i] && this.is_visible(this.sprites[i]))
-                this.sprites[i].render();
+            var start_y = 0;
+            for(var i=0 ; i<this.sprites.length ; i++)
+            {
+                if (this.sprites[i].z == depth)
+                {
+                    this.tilemap.render(depth, start_y, this.sprites[i].y);
+                    
+                    if (this.sprites[i] && this.is_visible(this.sprites[i]) && this.sprites[i].redraw)
+                        this.sprites[i].render();
+                    
+                    start_y = this.sprites[i].y;
+                }
+            }
+
+            this.tilemap.render(depth, start_y);
         }
+        
         this.redraw = false;
+    }
+    
+    glixl.Scene.prototype.collide = function(obj)
+    {
+        if (obj.z > 1)
+            return this.tilemap.collide(obj.x, obj.y, obj.z);
+        else
+            return (this.tilemap.collide(obj.x, obj.y, 0) || this.tilemap.collide(obj.x, obj.y, obj.z));
     }
     
     /* Sprite
@@ -251,6 +272,7 @@ var glixl = (function(glixl)
             
         this.x = parameters.x || 0;
         this.y = parameters.y || 0;
+        this.z = parameters.z || 0;
         
         this.width = parameters.size[0];
         this.height = parameters.size[1];
@@ -535,6 +557,10 @@ var glixl = (function(glixl)
         this.sprite_sheet = parameters.sprite_sheet;
         this.columns = parameters.dimensions[0];
         this.rows = parameters.dimensions[1];
+        if (parameters.dimensions.length > 2)
+            this.depth = parameters.dimensions[2];
+        else
+            this.depth = 0;
         
         this.tile_width = this.sprite_sheet.frame_width;
         this.tile_height = this.sprite_sheet.frame_height;
@@ -549,13 +575,25 @@ var glixl = (function(glixl)
         this.redraw = true;
     }
     
-    glixl.TileMap.prototype.set_tile = function(row, col, tile)
+    glixl.TileMap.prototype.set_tile = function(col, row, tile)
     {
-        this.map[this.columns*row+col] = tile;
+        this.map[this.columns*row+col] = [tile];
+    }
+    
+    glixl.TileMap.prototype.push_tile = function(col, row, tile)
+    {
+        if (this.map[this.columns*row+col])
+        {
+            this.map[this.columns*row+col].push(tile);
+        }
+        else
+        {
+            this.map[this.columns*row+col] = [tile];
+        }
     }
     
         
-    glixl.TileMap.prototype.render = function()
+    glixl.TileMap.prototype.render = function(depth, start_y, finish_y)
     {
         var loaded = this.sprite_sheet.bind_texture();
         if (loaded && !this.texture_loaded)
@@ -569,15 +607,24 @@ var glixl = (function(glixl)
             glixl.context.bindBuffer(glixl.context.ARRAY_BUFFER, this.buffer);
             var vertices = [];
             var index = 0;
-            var tile;
             this.visible_count = 0;
             
-            for (var t=0 ; t<this.map.length ; t++)
+            if (typeof finish_y == 'undefined')
+                finish = this.map.length;
+            else
+                finish = Math.floor( (finish_y+this.tile_height) / (this.tile_height * this.scale) ) * this.columns;
+            
+            if (typeof start_y == 'undefined')
+                start = 0;
+            else
+                start = Math.floor( (start_y+this.tile_height) / (this.tile_height * this.scale) ) * this.columns;
+            
+            for (var t=start ; t<finish ; t++)
             {
-                if (typeof this.map[t] != 'undefined')
+                if (typeof this.map[t] != 'undefined' && this.map[t].length >= depth+1)
                 {
-                    var c = Math.floor(t / this.columns);
-                    var r = t - (c*this.columns);
+                    var r = Math.floor(t / this.columns);
+                    var c = t - (r*this.columns);
                     
                     var w = this.tile_width * this.scale;
                     var h = this.tile_height * this.scale;
@@ -585,12 +632,17 @@ var glixl = (function(glixl)
                     var x = c * w;
                     var y = r * h;
                     
+                    if (depth > 1)
+                    {
+                        y -= (this.tile_height * this.scale * (depth-1));
+                    }
+                    
                     if (glixl.scene.is_visible({x: x, y:y, width: w, height: h}))
                     {
                         this.visible_count += 1;
                         
-                        var tx = this.sprite_sheet.get_coordinates_for_frame(this.map[t].frame);
-                    
+                        var tx = this.sprite_sheet.get_coordinates_for_frame(this.map[t][depth].frame);
+                        
                         vertices[index++] = x;
                         vertices[index++] = y;
                         vertices[index++] = tx[0];
@@ -618,6 +670,7 @@ var glixl = (function(glixl)
                     }
                 }
             }
+            
             glixl.context.bufferData(glixl.context.ARRAY_BUFFER, new Float32Array(vertices), glixl.context.DYNAMIC_DRAW);
             
             delete vertices;
@@ -627,8 +680,6 @@ var glixl = (function(glixl)
             
             this.matrix = glixl.multiply_matrix(glixl.scene.global_translation_matrix, glixl.PROJECTION_MATRIX);
             glixl.context.uniformMatrix3fv(glixl.matrix, false, this.matrix);
-            
-            this.redraw = false;
         }
         else
         {
@@ -644,14 +695,15 @@ var glixl = (function(glixl)
         glixl.context.drawArrays(glixl.context.TRIANGLES, 0, this.visible_count * 6);
     }
     
-    glixl.TileMap.prototype.collide = function(x, y)
+    glixl.TileMap.prototype.collide = function(x, y, z)
     {
         var c = Math.floor(x/(this.tile_width * this.scale));
         var r = Math.floor(y/(this.tile_height * this.scale));
         if (c < 0 || c > this.columns-1 || r < 0 || r > this.rows-1)
             return false;
-        if (this.map[this.columns*c+r])
-            return this.map[this.columns*c+r].collidable;
+        if (this.map[this.columns*r+c][z])
+            return this.map[this.columns*r+c][z].collidable;
+            
         return false;
     }
     
